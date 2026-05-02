@@ -1,0 +1,33 @@
+[project]
+name = "rs-agent"
+version = "3.0.0"
+description = "遥感多模态智能分析助手"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+    "rasterio>=1.3",
+    "opencv-python>=4.8",
+    "matplotlib>=3.7",
+    "scikit-learn>=1.3",
+    "torch>=2.0",
+    "segment-anything",
+    "fastapi>=0.110",
+    "uvicorn>=0.25",
+    "fiona>=1.9",
+    "earthengine-api",
+]
+
+[project.scripts]
+rs-agent = "main:main"
+rs-server = "app:main"
+
+[build-system]
+requires = ["setuptools>=65"]
+build-backend = "setuptools.build_meta"
+
+[tool.pyinstaller]
+name = "RS-Agent"
+console = true
+onefile = true
+add-data = ["src:src", "models:models", "web:web"]
+hidden-imports = ["sklearn", "sklearn.ensemble", "sklearn.cluster", "sklearn.metrics", "sklearn.decomposition"]
