@@ -75,6 +75,38 @@ class ConversationManager:
             self.messages.append(system)
 
     def _trim(self) -> None:
-        """裁剪超出 max_history 的早期消息，保留 system prompt。"""
-        if len(self.messages) > self.max_history + 1:  # +1 for system
-            self.messages = [self.messages[0]] + self.messages[-(self.max_history):]
+        """裁剪超出 max_history 的早期消息，保留 system prompt。
+
+        确保不会拆分 tool_call / tool_result 消息对。
+        """
+        if len(self.messages) <= self.max_history + 1:  # +1 for system
+            return
+
+        system = self.messages[0]
+        rest = self.messages[1:]
+
+        # Find a safe cut point: never cut between a tool_call and its tool_result
+        excess = len(rest) - self.max_history
+        if excess <= 0:
+            return
+
+        cut = 0
+        for i in range(excess):
+            msg = rest[i]
+            # If this message has tool_calls, skip until all corresponding tool results are included
+            if msg.get("role") == "assistant" and msg.get("tool_calls"):
+                # Find the tool_call IDs
+                tc_ids = {tc["id"] for tc in msg["tool_calls"]}
+                # Look ahead for matching tool results
+                j = i + 1
+                while j < len(rest) and tc_ids:
+                    if rest[j].get("role") == "tool" and rest[j].get("tool_call_id") in tc_ids:
+                        tc_ids.discard(rest[j]["tool_call_id"])
+                    j += 1
+                if tc_ids:
+                    # Can't safely cut here — tool results haven't been found yet
+                    cut = i
+                    break
+            cut = i + 1
+
+        self.messages = [system] + rest[cut:]

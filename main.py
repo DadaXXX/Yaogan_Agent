@@ -1,5 +1,9 @@
 """交互式对话入口 — 类似 ChatGPT/DeepSeek 的遥感分析助手。"""
 
+# 运行方式：
+# uvicorn app:app --host 0.0.0.0 --port 8000 之后浏览器打开 http://localhost:8000
+# 或者直接 python main.py 进入命令行对话模式
+
 import argparse
 import re
 import shutil

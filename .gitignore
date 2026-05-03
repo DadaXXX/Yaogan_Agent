@@ -1,9 +1,45 @@
-/.conda
-/.vscode
-/build
-/build.spec
-/dist
-/GeoNDC_N22E099_20251124.tif
-/GeoNDC_N22E099_20251124.tif.aux.xml
-/GeoNDC_N22E099_20251124.tif.ovr
-/建筑物.jpg
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Environment
+.env
+.conda/
+.vscode/
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Output & uploads
+output/
+uploads/
+
+# Model weights (large files)
+models/sam/*.pth
+
+# Data files (user-specific)
+*.tif
+*.tiff
+*.vrt
+*.jpg
+*.jpeg
+*.png
+
+# PyInstaller
+build.spec
+*.spec
+
+# OS
+.DS_Store
+Thumbs.db
+
+# gstack
+~/.gstack/

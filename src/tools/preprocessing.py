@@ -15,6 +15,8 @@ try:
 except ImportError:
     cv2 = None
 
+from src.tools._utils import safe_path
+
 
 class PreprocessingToolkit:
     """遥感影像预处理工具集"""
@@ -31,7 +33,10 @@ class PreprocessingToolkit:
         if rasterio is None:
             return "云掩膜失败：缺少 rasterio 依赖。"
 
-        path = Path(image_path)
+        try:
+            path = safe_path(image_path, self.output_dir)
+        except ValueError as e:
+            return f"路径错误: {e}"
         if not path.exists():
             return f"文件不存在: {image_path}"
 
@@ -98,7 +103,10 @@ class PreprocessingToolkit:
         if rasterio is None:
             return "归一化失败：缺少 rasterio 依赖。"
 
-        path = Path(image_path)
+        try:
+            path = safe_path(image_path, self.output_dir)
+        except ValueError as e:
+            return f"路径错误: {e}"
         if not path.exists():
             return f"文件不存在: {image_path}"
 
@@ -147,8 +155,11 @@ class PreprocessingToolkit:
         if rasterio is None:
             return "直方图匹配失败：缺少 rasterio 依赖。"
 
-        s_path = Path(source_path)
-        r_path = Path(reference_path)
+        try:
+            s_path = safe_path(source_path, self.output_dir)
+            r_path = safe_path(reference_path, self.output_dir)
+        except ValueError as e:
+            return f"路径错误: {e}"
         if not s_path.exists():
             return f"源文件不存在: {source_path}"
         if not r_path.exists():
@@ -197,7 +208,10 @@ class PreprocessingToolkit:
         if rasterio is None:
             return "重采样失败：缺少 rasterio 依赖。"
 
-        path = Path(image_path)
+        try:
+            path = safe_path(image_path, self.output_dir)
+        except ValueError as e:
+            return f"路径错误: {e}"
         if not path.exists():
             return f"文件不存在: {image_path}"
 

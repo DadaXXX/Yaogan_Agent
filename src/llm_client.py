@@ -41,10 +41,10 @@ class DeepSeekClient(LLMClient):
         base_url: str = "https://api.deepseek.com",
     ):
         self.model = model
-        self.client = OpenAI(api_key=api_key, base_url=base_url)
+        self.client = OpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
 
     def chat(self, messages: list, tools: Optional[list] = None) -> ChatResponse:
-        kwargs = dict(model=self.model, messages=messages)
+        kwargs = dict(model=self.model, messages=messages, timeout=60.0)
         if tools:
             kwargs["tools"] = tools
 
@@ -75,10 +75,10 @@ class OpenAIClient(LLMClient):
         base_url: Optional[str] = None,
     ):
         self.model = model
-        self.client = OpenAI(api_key=api_key, base_url=base_url)
+        self.client = OpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
 
     def chat(self, messages: list, tools: Optional[list] = None) -> ChatResponse:
-        kwargs = dict(model=self.model, messages=messages)
+        kwargs = dict(model=self.model, messages=messages, timeout=60.0)
         if tools:
             kwargs["tools"] = tools
 

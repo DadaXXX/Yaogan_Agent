@@ -1,5 +1,8 @@
 """遥感影像分析工具集 — 图像加载、NDVI、SAR、分割、分类等。"""
 
+import ast
+import math
+import operator
 import os
 from pathlib import Path
 from typing import Optional
@@ -20,6 +23,118 @@ try:
     from sklearn.cluster import KMeans
 except ImportError:
     KMeans = None
+
+
+# ── Safe expression evaluator ────────────────────────────
+
+_SAFE_OPERATORS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.FloorDiv: operator.floordiv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+    ast.USub: operator.neg,
+    ast.UAdd: operator.pos,
+}
+
+_SAFE_FUNCTIONS = {
+    "abs": np.abs,
+    "sqrt": np.sqrt,
+    "log": np.log,
+    "log10": np.log10,
+    "exp": np.exp,
+    "clip": np.clip,
+    "min": np.minimum,
+    "max": np.maximum,
+    "sin": np.sin,
+    "cos": np.cos,
+    "tan": np.tan,
+    "arctan2": np.arctan2,
+    "floor": np.floor,
+    "ceil": np.ceil,
+    "round": np.round,
+    "where": np.where,
+    "mean": np.mean,
+    "std": np.std,
+}
+
+
+def _safe_eval(node: ast.AST, variables: dict) -> np.ndarray:
+    """Evaluate an AST node using only safe operations and variables."""
+    if isinstance(node, ast.Expression):
+        return _safe_eval(node.body, variables)
+    elif isinstance(node, ast.Constant):
+        if isinstance(node.value, (int, float, complex)):
+            return node.value
+        raise ValueError(f"不支持的常量类型: {type(node.value).__name__}")
+    elif isinstance(node, ast.Name):
+        name = node.id
+        if name in variables:
+            return variables[name]
+        raise ValueError(f"未知变量: '{name}'。可用变量: {', '.join(variables.keys())}")
+    elif isinstance(node, ast.BinOp):
+        op_type = type(node.op)
+        if op_type not in _SAFE_OPERATORS:
+            raise ValueError(f"不支持的运算符: {op_type.__name__}")
+        left = _safe_eval(node.left, variables)
+        right = _safe_eval(node.right, variables)
+        return _SAFE_OPERATORS[op_type](left, right)
+    elif isinstance(node, ast.UnaryOp):
+        op_type = type(node.op)
+        if op_type not in _SAFE_OPERATORS:
+            raise ValueError(f"不支持的一元运算符: {op_type.__name__}")
+        operand = _safe_eval(node.operand, variables)
+        return _SAFE_OPERATORS[op_type](operand)
+    elif isinstance(node, ast.Call):
+        if not isinstance(node.func, ast.Name):
+            raise ValueError("不支持嵌套函数调用或属性访问")
+        func_name = node.func.id
+        if func_name not in _SAFE_FUNCTIONS:
+            raise ValueError(f"不支持的函数: '{func_name}'。可用函数: {', '.join(_SAFE_FUNCTIONS.keys())}")
+        args = [_safe_eval(arg, variables) for arg in node.args]
+        return _SAFE_FUNCTIONS[func_name](*args)
+    elif isinstance(node, ast.Compare):
+        # Support simple comparisons: expr > 0, expr < 1, etc.
+        left = _safe_eval(node.left, variables)
+        result = np.ones_like(left, dtype=bool) if isinstance(left, np.ndarray) else True
+        for op, comparator in zip(node.ops, node.comparators):
+            right = _safe_eval(comparator, variables)
+            if isinstance(op, ast.Gt):
+                result = result & (left > right)
+            elif isinstance(op, ast.Lt):
+                result = result & (left < right)
+            elif isinstance(op, ast.GtE):
+                result = result & (left >= right)
+            elif isinstance(op, ast.LtE):
+                result = result & (left <= right)
+            elif isinstance(op, ast.Eq):
+                result = result & (left == right)
+            elif isinstance(op, ast.NotEq):
+                result = result & (left != right)
+            else:
+                raise ValueError(f"不支持的比较运算符: {type(op).__name__}")
+            left = right
+        return result
+    elif isinstance(node, ast.IfExp):
+        test = _safe_eval(node.test, variables)
+        body = _safe_eval(node.body, variables)
+        orelse = _safe_eval(node.orelse, variables)
+        return np.where(test, body, orelse)
+    elif isinstance(node, ast.BoolOp):
+        values = [_safe_eval(v, variables) for v in node.values]
+        if isinstance(node.op, ast.And):
+            result = values[0]
+            for v in values[1:]:
+                result = result & v
+            return result
+        elif isinstance(node.op, ast.Or):
+            result = values[0]
+            for v in values[1:]:
+                result = result | v
+            return result
+    raise ValueError(f"不支持的表达式节点: {type(node).__name__}")
 
 
 class RemoteSensingToolkit:
@@ -536,9 +651,10 @@ class RemoteSensingToolkit:
             local_vars[f'b{i+1}'] = img[:, :, i].astype(np.float32)
 
         try:
-            result = eval(expression, {"__builtins__": {}, "np": np}, local_vars)
-        except Exception as e:
-            return f"波段运算失败: {e}\n支持的语法: b1, b2, ... 表示波段，支持 + - * / () 和 np.* 函数"
+            tree = ast.parse(expression, mode="eval")
+            result = _safe_eval(tree, local_vars)
+        except (ValueError, SyntaxError) as e:
+            return f"波段运算失败: {e}\n支持的语法: b1, b2, ... 表示波段，支持 + - * / () 和函数 (abs/sqrt/log/exp/clip/where 等)"
 
         result = np.asarray(result, dtype=np.float32)
         if result.ndim not in (2, 3):
@@ -734,9 +850,14 @@ class RemoteSensingToolkit:
     # ── 内部辅助方法 ──────────────────────────────────
 
     def _load_image(self, image_path: str) -> Optional[np.ndarray]:
+        from src.tools._utils import safe_path
+
         self._src_profile = None
         self._band_descriptions = None
-        path = Path(image_path)
+        try:
+            path = safe_path(image_path, self.output_dir)
+        except ValueError:
+            return None
         if not path.exists():
             return None
 

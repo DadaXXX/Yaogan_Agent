@@ -1,10 +1,11 @@
 """分类工具 — 监督分类(RF/SVM)、非监督聚类、精度评价。"""
 
-import pickle
 from pathlib import Path
 from typing import Optional
 
 import numpy as np
+
+from src.tools._utils import safe_path
 
 try:
     import rasterio
@@ -39,8 +40,11 @@ class ClassificationToolkit:
         if RandomForestClassifier is None:
             return "训练失败：缺少 scikit-learn。"
 
-        path = Path(image_path)
-        csv_path = Path(samples_csv)
+        try:
+            path = safe_path(image_path, self.output_dir)
+            csv_path = safe_path(samples_csv, self.output_dir)
+        except ValueError as e:
+            return f"路径错误: {e}"
         if not path.exists():
             return f"影像不存在: {image_path}"
         if not csv_path.exists():
@@ -82,9 +86,9 @@ class ClassificationToolkit:
             self._model = model
             self._model_type = classifier
 
+            import joblib
             model_path = Path(self.output_dir) / "classifier_model.pkl"
-            with open(model_path, "wb") as f:
-                pickle.dump(model, f)
+            joblib.dump(model, model_path)
 
             class_info = [f"  {c}: {cnt} 样本" for c, cnt in zip(classes, class_counts)]
 
@@ -110,12 +114,15 @@ class ClassificationToolkit:
         if self._model is None:
             model_path = Path(self.output_dir) / "classifier_model.pkl"
             if model_path.exists():
-                with open(model_path, "rb") as f:
-                    self._model = pickle.load(f)
+                import joblib
+                self._model = joblib.load(model_path)
             else:
                 return "分类失败：没有已训练的模型。请先调用 train_classifier 训练。"
 
-        path = Path(image_path)
+        try:
+            path = safe_path(image_path, self.output_dir)
+        except ValueError as e:
+            return f"路径错误: {e}"
         if not path.exists():
             return f"影像不存在: {image_path}"
 
@@ -160,8 +167,11 @@ class ClassificationToolkit:
         if RandomForestClassifier is None:
             return "精度评价失败：缺少 scikit-learn。"
 
-        path = Path(image_path)
-        csv_path = Path(validation_csv)
+        try:
+            path = safe_path(image_path, self.output_dir)
+            csv_path = safe_path(validation_csv, self.output_dir)
+        except ValueError as e:
+            return f"路径错误: {e}"
         if not path.exists():
             return f"影像不存在: {image_path}"
         if not csv_path.exists():
@@ -170,8 +180,8 @@ class ClassificationToolkit:
         if self._model is None:
             model_path = Path(self.output_dir) / "classifier_model.pkl"
             if model_path.exists():
-                with open(model_path, "rb") as f:
-                    self._model = pickle.load(f)
+                import joblib
+                self._model = joblib.load(model_path)
             else:
                 return "精度评价失败：没有已训练的模型。"
 
@@ -221,7 +231,10 @@ class ClassificationToolkit:
         if KMeans is None:
             return "KMeans 失败：缺少 scikit-learn。"
 
-        path = Path(image_path)
+        try:
+            path = safe_path(image_path, self.output_dir)
+        except ValueError as e:
+            return f"路径错误: {e}"
         if not path.exists():
             return f"影像不存在: {image_path}"
 

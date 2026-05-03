@@ -12,6 +12,8 @@ try:
 except ImportError:
     rasterio = None
 
+from src.tools._utils import safe_path
+
 
 class GeoToolkit:
     """地理空间分析工具集"""
@@ -27,7 +29,10 @@ class GeoToolkit:
         if rasterio is None:
             return "地理裁剪失败：缺少 rasterio 依赖。"
 
-        path = Path(image_path)
+        try:
+            path = safe_path(image_path, self.output_dir)
+        except ValueError as e:
+            return f"路径错误: {e}"
         if not path.exists():
             return f"文件不存在: {image_path}"
 
@@ -88,7 +93,10 @@ class GeoToolkit:
         if rasterio is None:
             return "重投影失败：缺少 rasterio 依赖。"
 
-        path = Path(image_path)
+        try:
+            path = safe_path(image_path, self.output_dir)
+        except ValueError as e:
+            return f"路径错误: {e}"
         if not path.exists():
             return f"文件不存在: {image_path}"
 
@@ -147,8 +155,11 @@ class GeoToolkit:
         if rasterio is None:
             return "分区统计失败：缺少 rasterio 依赖。"
 
-        path = Path(image_path)
-        vec_path = Path(geojson_path)
+        try:
+            path = safe_path(image_path, self.output_dir)
+            vec_path = safe_path(geojson_path, self.output_dir)
+        except ValueError as e:
+            return f"路径错误: {e}"
         if not path.exists():
             return f"影像文件不存在: {image_path}"
         if not vec_path.exists():
@@ -219,8 +230,11 @@ class GeoToolkit:
         if rasterio is None:
             return "ROI 提取失败：缺少 rasterio 依赖。"
 
-        path = Path(image_path)
-        vec_path = Path(geojson_path)
+        try:
+            path = safe_path(image_path, self.output_dir)
+            vec_path = safe_path(geojson_path, self.output_dir)
+        except ValueError as e:
+            return f"路径错误: {e}"
         if not path.exists():
             return f"影像文件不存在: {image_path}"
         if not vec_path.exists():

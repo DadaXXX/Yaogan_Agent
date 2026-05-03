@@ -10,6 +10,8 @@ try:
 except ImportError:
     rasterio = None
 
+from src.tools._utils import safe_path
+
 
 class AnalysisToolkit:
     """遥感分析工具集"""
@@ -25,8 +27,11 @@ class AnalysisToolkit:
         if rasterio is None:
             return "变化检测失败：缺少 rasterio 依赖。"
 
-        b_path = Path(image_before)
-        a_path = Path(image_after)
+        try:
+            b_path = safe_path(image_before, self.output_dir)
+            a_path = safe_path(image_after, self.output_dir)
+        except ValueError as e:
+            return f"路径错误: {e}"
         if not b_path.exists():
             return f"前期影像不存在: {image_before}"
         if not a_path.exists():
@@ -110,7 +115,10 @@ class AnalysisToolkit:
         if rasterio is None:
             return "PCA 失败：缺少 rasterio 依赖。"
 
-        path = Path(image_path)
+        try:
+            path = safe_path(image_path, self.output_dir)
+        except ValueError as e:
+            return f"路径错误: {e}"
         if not path.exists():
             return f"文件不存在: {image_path}"
 
@@ -169,7 +177,10 @@ class AnalysisToolkit:
         if rasterio is None:
             return "光谱分析失败：缺少 rasterio 依赖。"
 
-        path = Path(image_path)
+        try:
+            path = safe_path(image_path, self.output_dir)
+        except ValueError as e:
+            return f"路径错误: {e}"
         if not path.exists():
             return f"文件不存在: {image_path}"
 
@@ -199,7 +210,10 @@ class AnalysisToolkit:
         if rasterio is None:
             return "统计失败：缺少 rasterio 依赖。"
 
-        path = Path(image_path)
+        try:
+            path = safe_path(image_path, self.output_dir)
+        except ValueError as e:
+            return f"路径错误: {e}"
         if not path.exists():
             return f"文件不存在: {image_path}"
 
